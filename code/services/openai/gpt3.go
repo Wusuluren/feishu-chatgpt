@@ -91,6 +91,7 @@ func (gpt ChatGPT) Completions(msg []Messages) (resp Messages, err error) {
 	}
 	bReq, _ := json.Marshal(contentReq)
 	rsp, err := http.Post("https://ai117.com/", "application/json", bytes.NewReader(bReq))
+	defer rsp.Body.Close()
 	bResp, _ := ioutil.ReadAll(rsp.Body)
 	var contentResp MyResp
 	json.Unmarshal(bResp, &contentResp)
