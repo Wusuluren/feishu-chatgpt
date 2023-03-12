@@ -1,7 +1,12 @@
 package openai
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 )
 
 const (
@@ -41,23 +46,58 @@ type ChatGPTRequestBody struct {
 	PresencePenalty  int        `json:"presence_penalty"`
 }
 
-func (gpt ChatGPT) Completions(msg []Messages) (resp Messages, err error) {
-	requestBody := ChatGPTRequestBody{
-		Model:            engine,
-		Messages:         msg,
-		MaxTokens:        maxTokens,
-		Temperature:      temperature,
-		TopP:             1,
-		FrequencyPenalty: 0,
-		PresencePenalty:  0,
-	}
-	gptResponseBody := &ChatGPTResponseBody{}
-	err = gpt.sendRequestWithBodyType(gpt.ApiUrl+"/v1/chat/completions", "POST",
-		jsonBody,
-		requestBody, gptResponseBody)
+//func (gpt ChatGPT) Completions(msg []Messages) (resp Messages, err error) {
+//	requestBody := ChatGPTRequestBody{
+//		Model:            engine,
+//		Messages:         msg,
+//		MaxTokens:        maxTokens,
+//		Temperature:      temperature,
+//		TopP:             1,
+//		FrequencyPenalty: 0,
+//		PresencePenalty:  0,
+//	}
+//	gptResponseBody := &ChatGPTResponseBody{}
+//	err = gpt.sendRequestWithBodyType(gpt.ApiUrl+"/v1/chat/completions", "POST",
+//		jsonBody,
+//		requestBody, gptResponseBody)
+//
+//	if err == nil && len(gptResponseBody.Choices) > 0 {
+//		resp = gptResponseBody.Choices[0].Message
+//	} else {
+//		resp = Messages{}
+//		err = errors.New("openai 请求失败")
+//	}
+//	return resp, err
+//}
 
-	if err == nil && len(gptResponseBody.Choices) > 0 {
-		resp = gptResponseBody.Choices[0].Message
+// curl -XPOST https://ai117.com/ -d '{"msg":"11","token":"","style":"0"}' -H "content-type: application/json"
+// {"code":200,"msg":"success","data":["11","\n\nI'm sorry"]}
+func (gpt ChatGPT) Completions(msg []Messages) (resp Messages, err error) {
+	type MyReq struct {
+		Msg   string `json:"msg"`
+		Token string `json:"token"`
+		Style string `json:"style"`
+	}
+	type MyResp struct {
+		Code int      `json:"code"`
+		Msg  string   `json:"msg"`
+		Data []string `json:"data"`
+	}
+
+	contentReq := MyReq{
+		Msg:   msg[len(msg)-1].Content,
+		Token: "",
+		Style: "0",
+	}
+	bReq, _ := json.Marshal(contentReq)
+	rsp, err := http.Post("https://ai117.com/", "application/json", bytes.NewReader(bReq))
+	bResp, _ := ioutil.ReadAll(rsp.Body)
+	var contentResp MyResp
+	json.Unmarshal(bResp, &contentResp)
+	fmt.Printf("req:%s, resp:%s, err:%v", string(bReq), string(bResp), err)
+	if err == nil && len(contentResp.Data) > 1 {
+		resp.Role = msg[len(msg)-1].Role
+		resp.Content = contentResp.Data[1]
 	} else {
 		resp = Messages{}
 		err = errors.New("openai 请求失败")
